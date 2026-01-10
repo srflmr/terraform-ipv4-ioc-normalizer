@@ -34,7 +34,6 @@ class IPNormalizer(App):
     /* ===== SCREEN & LAYOUT ===== */
     Screen {
         layout: vertical;
-        background: $primary;
     }
 
     /* Header - docked at top with modern styling */
@@ -59,13 +58,11 @@ class IPNormalizer(App):
         width: 1fr;
         text-align: center;
         text-style: bold;
-        color: $text;
     }
 
     /* Footer - docked at bottom */
     Footer {
         dock: bottom;
-        background: $panel;
     }
 
     /* Main content - fills available space */
@@ -75,7 +72,7 @@ class IPNormalizer(App):
     }
 
     /* ===== RESPONSIVE GRID LAYOUT ===== */
-    /* Grid for 3 panels - adapts to terminal size */
+    /* Grid for 3 panels - naturally responsive using fr units */
     #maingrid {
         layout: grid;
         grid-size: 3;
@@ -85,43 +82,20 @@ class IPNormalizer(App):
         height: 1fr;
     }
 
-    /* Responsive breakpoint: switch to vertical layout on small terminals */
-    @media (max-width: 120) {
-        #maingrid {
-            grid-size: 3;
-            grid-columns: 1;
-            grid-rows: 1fr 1fr 1fr;
-        }
-    }
-
     /* ===== PANEL STYLING ===== */
     Vertical {
         height: 1fr;
     }
 
-    /* Panel borders with modern styling */
+    /* Panel borders with modern styling using border_title */
     #filepanel, #rawpanel, #normpanel {
         border: thick $accent;
         background: $panel;
-    }
-
-    #filepanel {
-        border-title: "[ 📁 File Browser ]";
-        border-subtitle: "input/";
-    }
-
-    #rawpanel {
-        border-title: "[ 📋 Raw IPs ]";
-        border-subtitle: "source data";
-    }
-
-    #normpanel {
-        border-title: "[ ✅ Terraform /32 ]";
-        border-subtitle: "output";
+        padding: 0;
     }
 
     /* ===== COMPONENTS ===== */
-    /* Remove unnecessary labels - using border titles instead */
+    /* Labels hidden - using border titles instead */
     Label {
         display: none;
     }
@@ -139,32 +113,7 @@ class IPNormalizer(App):
     /* DataTable with modern styling */
     DataTable {
         height: 1fr;
-        max-height: 80vh;
         border: solid $accent;
-    }
-
-    DataTable.--header {
-        background: $accent;
-        text-style: bold;
-    }
-
-    /* Zebra striping for better readability */
-    DataTable > DataTable {
-        zebra_striping: true;
-    }
-
-    /* Highlight styles for cursor and hover */
-    .datatable--cursor {
-        background: $accent;
-        text-style: bold;
-    }
-
-    .datatable--even-row {
-        background: $panel;
-    }
-
-    .datatable--odd-row {
-        background: $boost;
     }
 
     /* Input field styling */
@@ -201,7 +150,7 @@ class IPNormalizer(App):
         text-style: bold;
     }
 
-    /* Refresh button with success variant */
+    /* Refresh button */
     #refreshbtn {
         width: 1fr;
         min-width: 10;
@@ -219,7 +168,6 @@ class IPNormalizer(App):
     #actionbar {
         height: 3;
         padding: 1 0 0 0;
-        background: $panel;
     }
 
     #actionbar > Button {
@@ -227,16 +175,6 @@ class IPNormalizer(App):
         min-width: 12;
         margin: 0 0;
         height: 1;
-    }
-
-    /* Button variants */
-    #actionbar > Button.-primary {
-        background: $primary;
-        text-style: bold;
-    }
-
-    #actionbar > Button.-primary:hover {
-        background: $accent;
     }
 
     #actionbar > Button:hover {
@@ -250,17 +188,8 @@ class IPNormalizer(App):
         text-style: dim;
     }
 
-    /* ===== SCROLLBAR STYLING ===== */
-    ::-scrollbar {
+    Button:disabled:hover {
         background: $panel;
-    }
-
-    ::-scrollbar-thumb {
-        background: $accent;
-    }
-
-    ::-scrollbar-thumb:hover {
-        background: $primary;
     }
     """
 
@@ -319,6 +248,23 @@ class IPNormalizer(App):
         yield Footer()
 
     def on_mount(self):
+        """Set up border titles and initial focus."""
+        # Set border titles for panels (modern Textual approach)
+        try:
+            filepanel = self.query_one("#filepanel", Vertical)
+            filepanel.border_title = "[ Files ]"
+            filepanel.border_subtitle = "input/"
+
+            rawpanel = self.query_one("#rawpanel", Vertical)
+            rawpanel.border_title = "[ Raw IPs ]"
+            rawpanel.border_subtitle = "source"
+
+            normpanel = self.query_one("#normpanel", Vertical)
+            normpanel.border_title = "[ Terraform /32 ]"
+            normpanel.border_subtitle = "output"
+        except Exception:
+            pass  # Border titles are optional
+
         # Focus on the directory tree for immediate navigation
         try:
             tree_container = self.query_one("#treecontainer", Container)
