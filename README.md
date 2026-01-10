@@ -5,16 +5,16 @@
 **A Textual TUI application to normalize IPv4 Indicators of Compromise (IoC) for Terraform configuration**
 
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue)](https://www.python.org/downloads/)
-[![Textual](https://img.shields.io/badge/Textual-7.1.0-teal)](https://github.com/Textualize/textual)
+[![Textual](https://img.shields.io/badge/Textual-0.65%2B-teal)](https://github.com/Textualize/textual)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
-[Features](#features) • [Installation](#installation) • [Usage](#usage) • [Screenshots](#screenshots) • [Project Structure](#project-structure)
+[Features](#-features)  [Quick Start](#-quick-start)  [Documentation](#-documentation)  [Screenshots](#-screenshots)
 
 </div>
 
 ---
 
-## 🎯 Overview
+## Overview
 
 This application converts raw IPv4 addresses from CSV/TSV/TXT files into Terraform-ready CIDR /32 blocks. Designed for security analysts and threat intelligence teams who need to quickly format IP indicators for infrastructure-as-code security policies.
 
@@ -27,52 +27,47 @@ This application converts raw IPv4 addresses from CSV/TSV/TXT files into Terrafo
 
 ---
 
-## ✨ Features
+## Features
 
-- 🔍 **Smart CSV Parsing**
-  - Auto-detects delimiters (comma, semicolon, tab, pipe)
-  - Fallback strategies for non-standard formats
-  - Handles files with headers
-
-- 📁 **Integrated File Browser**
-  - Navigate and select files from `input/` directory
-  - Manual path input support
-  - File type validation
-
-- 📊 **Real-time Statistics**
-  - Live IOC count display
-  - Source file tracking
-  - Processing status updates
-
-- 📋 **Multiple Export Options**
-  - Copy Terraform list to clipboard
-  - Export to JSON with timestamps
-  - Unique filenames prevent data loss
-
-- 🎨 **Responsive TUI**
-  - Adapts to terminal size
-  - Clean 3-panel layout
-  - Keyboard navigation
+- **Smart CSV Parsing** - Auto-detects delimiters (comma, semicolon, tab, pipe) with fallback strategies
+- **Integrated File Browser** - Navigate and select files from `input/` directory with manual path input support
+- **Real-time Statistics** - Live IOC count display, source file tracking, and processing status updates
+- **Multiple Export Options** - Copy Terraform list to clipboard or export to JSON with unique filenames
+- **Responsive TUI** - Adapts to terminal size with a clean 3-panel layout and keyboard navigation
 
 ---
 
-## 📦 Installation
+## Quick Start
 
 ### Prerequisites
 
 - Python 3.8 or higher
 - pip package manager
 
-### Quick Start
+### Installation
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/terraform-ipv4-ioc-normalizer.git
+git clone https://github.com/srflmr/terraform-ipv4-ioc-normalizer.git
 cd terraform-ipv4-ioc-normalizer
 
+# Run the auto-launcher (sets up everything automatically)
+python3 launcher.py
+```
+
+The launcher will:
+- Create a virtual environment (`.venv`)
+- Install all dependencies
+- Launch the application
+
+### Manual Installation
+
+See the [USAGE.md](USAGE.md) for detailed platform-specific instructions (Windows/Linux/macOS).
+
+```bash
 # Create virtual environment
 python3 -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
@@ -81,85 +76,39 @@ pip install -r requirements.txt
 python app.py
 ```
 
-### Using the Launcher
+---
 
-```bash
-python launcher.py
-```
+## Documentation
 
-The launcher will automatically set up the environment and run the app.
+| Document | Description |
+|----------|-------------|
+| [USAGE.md](USAGE.md) | Complete beginner-friendly guide with installation and usage instructions |
+| [LICENSE](LICENSE) | MIT License |
 
 ---
 
-## 🚀 Usage
-
-### 1. Prepare Your Input
-
-Place your CSV/TSV/TXT files containing IPv4 addresses in the `input/` directory.
-
-**Example CSV (semicolon-delimited):**
-```csv
-IP Address
-102.129.165.164;
-103.136.69.227;
-103.231.74.10;
-```
-
-**Example CSV (comma-delimited):**
-```csv
-indicator,value
-192.168.1.1,malicious
-10.0.0.1,suspicious
-```
-
-### 2. Load and Process
-
-1. **Select a file** from the file browser OR enter the path manually
-2. Click **LOAD SELECTED** or **LOAD PATH**
-3. Valid IPv4 addresses will appear in the "Raw IPv4" panel
-4. Click **PROCESS** to convert to CIDR /32 blocks
-5. Results appear in the "Terraform /32 Ready" panel
-
-### 3. Export Your Data
-
-- **Copy TF**: Copies Terraform list to clipboard
-  ```
-  ["192.168.1.1/32","10.0.0.1/32"]
-  ```
-
-- **SAVE JSON**: Exports to `output/` directory with timestamp
-  ```json
-  {
-    "export_timestamp": "2026-01-10T20:43:07.827762",
-    "source_file": "input/sample_ioc.csv",
-    "ipv4_count": 10,
-    "terraform_list": "[\"192.168.1.1/32\",...]",
-    "cidr_blocks": ["192.168.1.1/32",...]
-  }
-  ```
-
----
-
-## 📂 Project Structure
+## Project Structure
 
 ```
 terraform-ipv4-ioc-normalizer/
-├── app.py                  # Main application
+├── app.py                  # Main application (Textual TUI)
 ├── launcher.py             # Auto-setup launcher
 ├── requirements.txt        # Python dependencies
 ├── README.md              # This file
+├── USAGE.md               # Detailed usage guide
+├── LICENSE                # MIT License
 ├── .gitignore             # Git ignore rules
 │
-├── input/                 # INPUT: Place your CSV files here
-│   └── sample_ioc.csv
+├── input/                 # INPUT: Place your CSV/TSV/TXT files here
+│   └── sample.csv         # Example input file
 │
 └── output/                # OUTPUT: Generated JSON files
-    └── terraform_iocs_10_20260110_204307.json
+    └── terraform_iocs_*.json
 ```
 
 ---
 
-## 🔧 Dependencies
+## Dependencies
 
 ```
 textual>=0.65.0,<1.0.0    # Terminal UI framework
@@ -169,22 +118,65 @@ pyperclip>=1.8.0,<2.0.0    # Clipboard operations
 
 ---
 
-## 📝 Output Format
+## Usage
+
+### 1. Prepare Your Input
+
+Place your CSV/TSV/TXT files containing IPv4 addresses in the `input/` directory.
+
+**Example CSV (semicolon-delimited):**
+```csv
+IP Address;
+102.129.165.164;
+103.136.69.227;
+103.231.74.10;
+```
+
+### 2. Load and Process
+
+1. **Select a file** from the file browser OR enter the path manually
+2. Click **LOAD SELECTED** or **LOAD PATH** (or press `Enter`)
+3. Valid IPv4 addresses will appear in the "Raw IPv4" panel
+4. Click **PROCESS** to convert to CIDR /32 blocks
+5. Results appear in the "Terraform /32 Ready" panel
+
+### 3. Export Your Data
+
+- **Copy TF**: Copies Terraform list to clipboard
+  ```hcl
+  ["192.168.1.1/32","10.0.0.1/32"]
+  ```
+
+- **SAVE JSON**: Exports to `output/` directory with timestamp
+  ```json
+  {
+    "export_timestamp": "2024-01-10T20:43:07.827762",
+    "source_file": "input/sample.csv",
+    "source_name": "sample.csv",
+    "ipv4_count": 10,
+    "terraform_list": "[\"192.168.1.1/32\",...]",
+    "cidr_blocks": ["192.168.1.1/32",...]
+  }
+  ```
+
+---
+
+## Output Format
 
 The exported JSON file contains:
 
 | Field | Description | Example |
 |-------|-------------|---------|
-| `export_timestamp` | ISO 8601 timestamp | `2026-01-10T20:43:07.827762` |
-| `source_file` | Full path to source file | `input/sample_ioc.csv` |
-| `source_name` | Source filename only | `sample_ioc.csv` |
+| `export_timestamp` | ISO 8601 timestamp | `2024-01-10T20:43:07.827762` |
+| `source_file` | Full path to source file | `input/sample.csv` |
+| `source_name` | Source filename only | `sample.csv` |
 | `ipv4_count` | Number of IPs | `10` |
 | `terraform_list` | Terraform HCL format list | `["IP/32",...]` |
 | `cidr_blocks` | Clean CIDR list | `["IP/32",...]` |
 
 ---
 
-## 🎯 Terraform Usage Example
+## Terraform Usage Example
 
 ```hcl
 # security_groups.tf
@@ -203,18 +195,18 @@ resource "aws_security_group_rule" "ingress_rules" {
 
 ---
 
-## ⌨️ Keyboard Controls
+## Keyboard Controls
 
 | Key | Action |
 |-----|--------|
 | `Tab` | Navigate between panels |
 | `Arrow Keys` | Navigate file browser |
-| `Enter` | Load selected file |
+| `Enter` | Load selected file / Activate button |
 | `Esc` | Quit application |
 
 ---
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### "No valid IPv4 addresses found"
 - Ensure your file contains valid IPv4 addresses (e.g., `192.168.1.1`)
@@ -225,27 +217,29 @@ resource "aws_security_group_rule" "ingress_rules" {
 - Ensure the file is not corrupted
 
 ### Clipboard not working
-- On Linux, ensure `xclip` or `wl-clipboard` is installed
+- On Linux, install `xclip` or `wl-clipboard`
 - On Windows/macOS, clipboard support should work out of the box
+
+For more troubleshooting tips, see [USAGE.md](USAGE.md).
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
-## 📄 License
+## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 Built with:
-- [Textual](https://github.com/Textualize/textual) - Awesome Python TUI framework
+- [Textual](https://github.com/Textualize/textual) - Python TUI framework
 - [Rich](https://github.com/Textualize/rich) - Text rendering library
 - [pyperclip](https://github.com/asweigart/pyperclip) - Cross-platform clipboard
 
