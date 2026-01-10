@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 """
-Terraform IPv4 Normalizer - Optimized Layout for 80x25 Terminal
-Minimal Chrome | Split View | All Functions Working
+Terraform IPv4 Normalizer - Lazygit-Style UI
+
+Inspired by Lazygit terminal UI with:
+- Horizontal split layout (side panels 30% + main preview 70%)
+- Panel jump keybindings (1, 2, 3, 0)
+- Border titles with dynamic subtitles
+- Green border for focused panel
+- Bottom line with keybinding hints
 """
 import csv
 import json
@@ -12,95 +18,95 @@ from datetime import datetime
 import pyperclip
 
 from textual.app import App, ComposeResult, on
-from textual.containers import Horizontal, Vertical, Container, Center, Grid
+from textual.containers import Horizontal, Vertical, Container, Center
 from textual.widgets import Header, Footer, Button, Input, Label, DataTable, Static, DirectoryTree
 from textual.scroll_view import ScrollView
 from textual import work
 from textual.css.query import NoMatches
 
 class IPNormalizer(App):
-    """Modern, responsive Terraform IPv4 Normalizer with cross-platform support.
+    """Lazygit-style Terraform IPv4 Normalizer.
 
-    UI Design Principles:
-    - Responsive layout using viewport units (vw/vh) for terminal adaptation
-    - Grid layout with proportional fr units for balanced distribution
-    - Modern color scheme with semantic styling
-    - Border titles for cleaner panel identification
-    - Zebra striping for improved table readability
-    - Smooth transitions and hover states for better UX
+    UI Features:
+    - Horizontal split: side panels (30%) + main preview (70%)
+    - Panel jumps: 1=Files, 2=Raw IPs, 3=Terraform, 0=Preview
+    - Green bold border for focused panel
+    - Border titles with dynamic subtitles showing item counts
+    - Bottom line with keybinding hints
+    - Zebra striping for data tables
     """
 
+    BINDINGS = [
+        ("1", "focus_files", "Files"),
+        ("2", "focus_raw", "Raw IPs"),
+        ("3", "focus_norm", "Terraform"),
+        ("0", "focus_preview", "Preview"),
+        ("tab", "next_panel", "Next Panel"),
+        ("p", "process_action", "Process"),
+        ("c", "copy_action", "Copy"),
+        ("s", "save_action", "Save"),
+        ("r", "refresh_action", "Refresh"),
+        ("q", "quit", "Quit"),
+    ]
+
     CSS = """
-    /* ===== SCREEN & LAYOUT ===== */
+    /* ===== LAZYGIT-STYLE LAYOUT ===== */
     Screen {
         layout: vertical;
     }
 
-    /* Header - docked at top with modern styling */
+    /* Header - compact like Lazygit */
     Header {
         dock: top;
-        height: 3;
-        background: $accent;
-        text-style: bold;
-        text-align: center;
-    }
-
-    /* Status bar - visible and informative */
-    #statusbar {
-        dock: top;
-        height: 2;
-        padding: 0 2;
-        background: $panel;
-        border-bottom: solid $primary;
-    }
-
-    #statusbar > Static {
-        width: 1fr;
-        text-align: center;
+        height: 1;
+        background: $primary;
         text-style: bold;
     }
 
-    /* Footer - docked at bottom */
-    Footer {
-        dock: bottom;
-    }
-
-    /* Main content - fills available space */
-    #maincontent {
+    /* Main horizontal split */
+    #mainsplit {
         height: 1fr;
-        padding: 1 1 0 1;
+        layout: horizontal;
     }
 
-    /* ===== RESPONSIVE GRID LAYOUT ===== */
-    /* Grid for 3 panels - naturally responsive using fr units */
-    #maingrid {
-        layout: grid;
-        grid-size: 3;
-        grid-columns: 1fr 1fr 1fr;
-        grid-rows: 1fr;
-        grid-gutter: 1 1;
+    /* Side panels container (30% width) */
+    #sidepanel {
+        width: 30%;
+        min-width: 25;
+        layout: vertical;
+    }
+
+    /* Main preview panel (70% width) */
+    #mainpreview {
+        width: 70%;
         height: 1fr;
     }
 
     /* ===== PANEL STYLING ===== */
+    /* All vertical panels (side panels + preview) */
     Vertical {
         height: 1fr;
-    }
-
-    /* Panel borders with modern styling using border_title */
-    #filepanel, #rawpanel, #normpanel {
-        border: thick $accent;
-        background: $panel;
+        border: rounded $accent;
         padding: 0;
     }
 
-    /* ===== COMPONENTS ===== */
-    /* Labels hidden - using border titles instead */
+    /* Focused panel - green bold border (Lazygit style) */
+    Vertical:focus {
+        border: thick green bold;
+    }
+
+    /* Individual panel heights */
+    #filepanel, #rawpanel, #normpanel {
+        height: 1fr;
+    }
+
+    /* ===== COMPONENT STYLING ===== */
+    /* Hide labels - using border titles */
     Label {
         display: none;
     }
 
-    /* Directory Tree */
+    /* Directory tree */
     #treecontainer {
         height: 1fr;
         padding: 0;
@@ -110,13 +116,13 @@ class IPNormalizer(App):
         height: 1fr;
     }
 
-    /* DataTable with modern styling */
+    /* DataTable with zebra striping */
     DataTable {
         height: 1fr;
-        border: solid $accent;
+        border: none;
     }
 
-    /* Input field styling */
+    /* Input field */
     Input {
         width: 1fr;
         height: 1;
@@ -131,13 +137,12 @@ class IPNormalizer(App):
     }
 
     /* ===== BUTTON STYLING ===== */
-    /* File panel button container */
+    /* File buttons container */
     #filebtns {
-        height: 3;
-        padding: 1 0 0 0;
+        height: 1;
+        padding: 0;
     }
 
-    /* File panel buttons */
     #filebtns > Button {
         width: 1fr;
         min-width: 8;
@@ -153,10 +158,8 @@ class IPNormalizer(App):
     /* Refresh button */
     #refreshbtn {
         width: 1fr;
-        min-width: 10;
         height: 1;
         margin: 0;
-        padding: 0;
     }
 
     #refreshbtn:hover {
@@ -164,25 +167,25 @@ class IPNormalizer(App):
         text-style: bold;
     }
 
-    /* Action buttons bar */
-    #actionbar {
-        height: 3;
-        padding: 1 0 0 0;
+    /* Action buttons container */
+    #actionbtns {
+        height: 1;
+        padding: 0;
+        dock: bottom;
     }
 
-    #actionbar > Button {
+    #actionbtns > Button {
         width: 1fr;
-        min-width: 12;
+        min-width: 10;
         margin: 0 0;
         height: 1;
     }
 
-    #actionbar > Button:hover {
+    #actionbtns > Button:hover {
         text-style: bold;
         background: $boost;
     }
 
-    /* Disabled button styling */
     Button:disabled {
         opacity: 0.5;
         text-style: dim;
@@ -190,6 +193,48 @@ class IPNormalizer(App):
 
     Button:disabled:hover {
         background: $panel;
+    }
+
+    /* ===== PREVIEW PANEL ===== */
+    #previewcontent {
+        height: 1fr;
+        padding: 1 2;
+        text-style: default;
+    }
+
+    #previewcontent Static {
+        margin: 1 0;
+    }
+
+    .preview-title {
+        text-style: bold;
+        text-align: center;
+        margin: 0 0 1 0;
+    }
+
+    .preview-label {
+        text-style: dim;
+        margin: 0 0 0 0;
+    }
+
+    .preview-value {
+        text-style: bold;
+        margin: 0 0 2 0;
+    }
+
+    /* ===== BOTTOM LINE STATUS ===== */
+    #bottomline {
+        height: 1;
+        dock: bottom;
+        padding: 0 1;
+        background: $panel;
+        border-top: solid $primary;
+    }
+
+    #bottomline > Static {
+        width: 1fr;
+        text-align: center;
+        text-style: dim;
     }
     """
 
@@ -208,19 +253,15 @@ class IPNormalizer(App):
         self.output_dir.mkdir(exist_ok=True)
 
     def compose(self) -> ComposeResult:
-        """Compose the UI with modern border titles and responsive layout."""
-        # Header - docked at top
+        """Compose Lazygit-style UI with horizontal split."""
+        # Header
         yield Header("Terraform IPv4 Normalizer")
 
-        # Status bar - at top, below header, for maximum visibility
-        with Horizontal(id="statusbar"):
-            yield Static("Ready | Raw: 0 | Norm: 0 | File: -", id="status")
-
-        # Main content area
-        with Vertical(id="maincontent"):
-            # Main grid with 3 panels
-            with Grid(id="maingrid"):
-                # File Browser Panel
+        # Main horizontal split
+        with Horizontal(id="mainsplit"):
+            # Side panels (left)
+            with Vertical(id="sidepanel"):
+                # Files Panel
                 with Vertical(id="filepanel"):
                     yield Container(DirectoryTree(str(self.input_dir), id="dirtree"), id="treecontainer")
                     yield Input(placeholder="Or enter path...", id="manualpath")
@@ -229,7 +270,7 @@ class IPNormalizer(App):
                         yield Button("Path", id="manuaload")
                     yield Button("Refresh", id="refreshbtn", variant="success")
 
-                # Raw IPv4 Panel
+                # Raw IPs Panel
                 with Vertical(id="rawpanel"):
                     yield DataTable(id="rawtbl")
 
@@ -237,35 +278,43 @@ class IPNormalizer(App):
                 with Vertical(id="normpanel"):
                     yield DataTable(id="normtbl")
 
-            # Action buttons - above footer
-            with Horizontal(id="actionbar"):
-                yield Button("Process", id="procbtn", disabled=True)
-                yield Button("Copy TF", id="copybtn", disabled=True)
-                yield Button("Save JSON", id="jsonbtn", disabled=True)
-                yield Button("Quit", id="quitbtn")
+            # Main preview panel (right)
+            with Vertical(id="mainpreview"):
+                yield Static(
+                    "[ Preview ]\n\n"
+                    "Select an item from any panel to see details here.\n\n"
+                    "Keybindings:\n"
+                    "  1/2/3/0 - Jump to panel\n"
+                    "  <tab> - Next panel\n"
+                    "  <enter> - Load file\n"
+                    "  p - Process IPs\n"
+                    "  c - Copy to clipboard\n"
+                    "  s - Save JSON\n"
+                    "  r - Refresh\n"
+                    "  q - Quit",
+                    id="previewcontent"
+                )
 
-        # Footer - docked at bottom
+        # Action buttons bar
+        with Horizontal(id="actionbtns"):
+            yield Button("Process", id="procbtn", disabled=True)
+            yield Button("Copy", id="copybtn", disabled=True)
+            yield Button("Save", id="jsonbtn", disabled=True)
+            yield Button("Quit", id="quitbtn")
+
+        # Bottom line with keybinding hints
+        with Horizontal(id="bottomline"):
+            yield Static(" <1>Files  <2>Raw  <3>TF  <0>Preview  │ <enter>Load  <p>Process  <c>Copy  <s>Save  <r>Refresh  <q>Quit ")
+
+        # Footer
         yield Footer()
 
     def on_mount(self):
         """Set up border titles and initial focus."""
-        # Set border titles for panels (modern Textual approach)
-        try:
-            filepanel = self.query_one("#filepanel", Vertical)
-            filepanel.border_title = "[ Files ]"
-            filepanel.border_subtitle = "input/"
+        # Set border titles with panel jump indicators
+        self.update_border_titles()
 
-            rawpanel = self.query_one("#rawpanel", Vertical)
-            rawpanel.border_title = "[ Raw IPs ]"
-            rawpanel.border_subtitle = "source"
-
-            normpanel = self.query_one("#normpanel", Vertical)
-            normpanel.border_title = "[ Terraform /32 ]"
-            normpanel.border_subtitle = "output"
-        except Exception:
-            pass  # Border titles are optional
-
-        # Focus on the directory tree for immediate navigation
+        # Focus on directory tree
         try:
             tree_container = self.query_one("#treecontainer", Container)
             for child in tree_container.children:
@@ -273,8 +322,91 @@ class IPNormalizer(App):
                     child.focus()
                     break
         except Exception:
-            pass  # If tree not found, that's OK
+            pass
 
+    def update_border_titles(self):
+        """Update border titles with Lazygit-style indicators."""
+        try:
+            file_panel = self.query_one("#filepanel", Vertical)
+            file_panel.border_title = " Files"
+            file_panel.border_subtitle = "input/"
+
+            raw_panel = self.query_one("#rawpanel", Vertical)
+            raw_panel.border_title = " Raw IPs"
+            raw_panel.border_subtitle = f"{len(self.raw_ips)} items"
+
+            norm_panel = self.query_one("#normpanel", Vertical)
+            norm_panel.border_title = " Terraform /32"
+            norm_panel.border_subtitle = f"{len(self.norm_ips)} items"
+
+            preview_panel = self.query_one("#mainpreview", Vertical)
+            preview_panel.border_title = " Preview"
+            preview_panel.border_subtitle = "details"
+        except Exception:
+            pass
+
+    # ===== PANEL JUMP ACTIONS =====
+    def action_focus_files(self):
+        """Jump to Files panel."""
+        self.query_one("#filepanel").focus()
+
+    def action_focus_raw(self):
+        """Jump to Raw IPs panel."""
+        self.query_one("#rawpanel").focus()
+
+    def action_focus_norm(self):
+        """Jump to Terraform /32 panel."""
+        self.query_one("#normpanel").focus()
+
+    def action_focus_preview(self):
+        """Jump to Preview panel."""
+        self.query_one("#mainpreview").focus()
+
+    def action_next_panel(self):
+        """Cycle to next panel."""
+        focused = self.focused
+        panels = ["#filepanel", "#rawpanel", "#normpanel", "#mainpreview"]
+        if focused:
+            for i, panel_id in enumerate(panels):
+                if focused == self.query_one(panel_id):
+                    next_panel = panels[(i + 1) % len(panels)]
+                    self.query_one(next_panel).focus()
+                    break
+
+    # ===== ACTION SHORTCUTS =====
+    def action_process_action(self):
+        """Process IPs (shortcut: p)."""
+        btn = self.query_one("#procbtn", Button)
+        if not btn.disabled:
+            self.process_to_cidr()
+        else:
+            self.notify("No raw IPs to process!")
+
+    def action_copy_action(self):
+        """Copy to clipboard (shortcut: c)."""
+        btn = self.query_one("#copybtn", Button)
+        if not btn.disabled:
+            self.copy_terraform_list()
+        else:
+            self.notify("No Terraform list to copy!")
+
+    def action_save_action(self):
+        """Save JSON (shortcut: s)."""
+        btn = self.query_one("#jsonbtn", Button)
+        if not btn.disabled:
+            self.export_json()
+        else:
+            self.notify("No data to save!")
+
+    def action_refresh_action(self):
+        """Refresh directory (shortcut: r)."""
+        self.refresh_directory()
+
+    def action_quit(self):
+        """Quit application."""
+        self.exit()
+
+    # ===== EVENT HANDLERS =====
     def on_directory_tree_file_selected(self, event):
         """Auto load on file select."""
         self.input_file = event.path
@@ -284,7 +416,6 @@ class IPNormalizer(App):
     @on(Button.Pressed, "#loadbtn")
     def load_button(self):
         """Load from tree cursor."""
-        # Get the DirectoryTree from the container
         tree_container = self.query_one("#treecontainer", Container)
         tree = None
         for child in tree_container.children:
@@ -308,13 +439,10 @@ class IPNormalizer(App):
     def refresh_directory(self):
         """Refresh the directory tree to show new files."""
         try:
-            # Import time for unique ID generation
             import time
 
-            # Get the container
             tree_container = self.query_one("#treecontainer", Container)
 
-            # Store cursor position from old tree if it exists
             cursor_path = None
             try:
                 old_tree = self.query_one("#dirtree", DirectoryTree)
@@ -322,26 +450,20 @@ class IPNormalizer(App):
                     cursor_path = str(old_tree.cursor_node.data.path)
                 old_tree.remove()
             except Exception:
-                pass  # No old tree exists
+                pass
 
-            # Generate unique ID for the new tree
             unique_id = f"dirtree_{int(time.time() * 1000)}"
-
-            # Mount new tree with unique ID
             new_tree = DirectoryTree(str(self.input_dir), id=unique_id)
             tree_container.mount(new_tree)
 
-            # Restore cursor if path still exists
             if cursor_path and Path(cursor_path).exists():
                 try:
                     new_tree.cursor_path = cursor_path
                 except Exception:
-                    pass  # Cursor restoration is optional
+                    pass
 
-            # Count files for status
             file_count = len([f for f in self.input_dir.iterdir() if f.is_file()])
             self.notify(f"Directory refreshed: {file_count} files found")
-            self.update_status(f"Directory refreshed - {file_count} files in input/")
         except Exception as e:
             import traceback
             traceback.print_exc()
@@ -355,10 +477,8 @@ class IPNormalizer(App):
                 self.call_from_thread(self.notify, "Not a file!")
                 return
 
-            # Store input file path for JSON export
             self.input_file = path
 
-            # File type validation
             valid_extensions = {'.csv', '.tsv', '.txt', '.log'}
             if path.suffix.lower() not in valid_extensions:
                 self.call_from_thread(self.notify, "Unsupported file type!")
@@ -368,11 +488,9 @@ class IPNormalizer(App):
                 sample = f.read(4096)
                 f.seek(0)
 
-                # Try to detect delimiter with multiple fallback strategies
                 delimiter = None
                 has_header = False
 
-                # Strategy 1: Try sniffer with explicit delimiter hints
                 try:
                     sniffer = csv.Sniffer()
                     dialect = sniffer.sniff(sample, delimiters=',;\t|')
@@ -380,7 +498,6 @@ class IPNormalizer(App):
                     has_header = sniffer.has_header(sample)
                     reader = csv.reader(f, dialect)
                 except csv.Error:
-                    # Strategy 2: Try each common delimiter explicitly
                     f.seek(0)
                     delimiter_found = False
                     for test_delim in [';', ',', '\t', '|']:
@@ -388,8 +505,7 @@ class IPNormalizer(App):
                         test_reader = csv.reader(f, delimiter=test_delim)
                         try:
                             rows = list(test_reader)
-                            if len(rows) >= 2:  # Need at least header + 1 data row
-                                # Check if any cell contains valid IP
+                            if len(rows) >= 2:
                                 for row in rows[1:]:
                                     for cell in row:
                                         ipstr = cell.strip().strip('"\' ')
@@ -398,7 +514,6 @@ class IPNormalizer(App):
                                                 ipaddress.IPv4Address(ipstr)
                                                 delimiter = test_delim
                                                 delimiter_found = True
-                                                # Check if first row is header
                                                 has_header = not any(
                                                     c.strip().replace('.', '').replace(':', '').isdigit()
                                                     for c in rows[0] if c.strip()
@@ -430,7 +545,7 @@ class IPNormalizer(App):
                                 ipaddress.IPv4Address(ipstr)
                                 ips.append(ipstr)
                         except ipaddress.AddressValueError:
-                            pass  # Skip invalid
+                            pass
 
             if not ips:
                 self.call_from_thread(self.notify, "No valid IPv4 addresses found!")
@@ -448,61 +563,38 @@ class IPNormalizer(App):
             self.call_from_thread(self.notify, f"Parse error: {type(e).__name__}: {e}")
 
     def update_raw_ips(self, ips):
-        """Update the raw IPs table with zebra striping enabled."""
+        """Update the raw IPs table with zebra striping."""
         self.raw_ips = ips
 
         table = self.query_one("#rawtbl", DataTable)
         table.clear()
-
-        # Add columns
-        table.add_columns("Valid IPv4")
-
-        # Enable zebra striping for better readability
+        table.add_columns("IPv4 Address")
         table.zebra_stripes = True
 
-        # Add rows with data
         for ip in ips:
             table.add_row(ip)
 
-        # Focus on the table for better UX
+        self.update_border_titles()
         table.focus()
 
-        # Update status bar with all info
-        self.update_status("Loaded")
-
         self.query_one("#procbtn").disabled = False
-
-    def update_status(self, message: str):
-        """Update status bar with compact format."""
-        file_name = self.input_file.name if self.input_file else '-'
-        status_text = f"{message} | Raw: {len(self.raw_ips)} | Norm: {len(self.norm_ips)} | {file_name}"
-        self.query_one("#status").update(status_text)
 
     @on(Button.Pressed, "#procbtn")
     def process_to_cidr(self):
         """Process raw IPs to Terraform CIDR /32 format."""
         try:
-            # Format with quotes for Terraform HCL: "IP/32"
             self.norm_ips = [f'"{ip}/32"' for ip in self.raw_ips]
 
             table = self.query_one("#normtbl", DataTable)
             table.clear()
-
-            # Add columns
             table.add_columns("Terraform CIDR /32")
-
-            # Enable zebra striping for better readability
             table.zebra_stripes = True
 
-            # Add rows with formatted CIDR
             for cidr in self.norm_ips:
                 table.add_row(cidr)
 
-            # Focus on the normalized table
+            self.update_border_titles()
             table.focus()
-
-            # Update status bar
-            self.update_status("Processed")
 
             self.query_one("#copybtn").disabled = False
             self.query_one("#jsonbtn").disabled = False
@@ -515,20 +607,14 @@ class IPNormalizer(App):
             tf_list = f"[{','.join(self.norm_ips)}]"
             pyperclip.copy(tf_list)
             self.notify(f"Copied {len(self.norm_ips)} CIDR to clipboard!")
-            self.update_status("Terraform list copied!")
         except Exception as e:
             self.notify(f"Copy error: {e}")
 
     @on(Button.Pressed, "#jsonbtn")
     def export_json(self):
         try:
-            # Create clean CIDR blocks list (IP/32 format without extra quotes)
             cidr_blocks_clean = [f"{ip}/32" for ip in self.raw_ips]
-
-            # Generate timestamp for unique filename
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-            # Get relative path from input file for better readability
             source_name = self.input_file.name if self.input_file else "unknown"
 
             data = {
@@ -536,19 +622,15 @@ class IPNormalizer(App):
                 "source_file": str(self.input_file) if self.input_file else "unknown",
                 "source_name": source_name,
                 "ipv4_count": len(self.norm_ips),
-                "terraform_list": f"[{','.join(self.norm_ips)}]",  # HCL format with quotes
-                "cidr_blocks": cidr_blocks_clean  # Clean format: IP/32
+                "terraform_list": f"[{','.join(self.norm_ips)}]",
+                "cidr_blocks": cidr_blocks_clean
             }
 
-            # Filename format: terraform_iocs_<count>_<timestamp>.json
             filename = f"terraform_iocs_{len(self.norm_ips)}_{timestamp}.json"
-
-            # Save to output directory
             output_path = self.output_dir / filename
             output_path.write_text(json.dumps(data, indent=2))
 
             self.notify(f"Saved: output/{filename}")
-            self.update_status(f"Saved {filename}")
         except Exception as e:
             self.notify(f"JSON save error: {e}")
 
