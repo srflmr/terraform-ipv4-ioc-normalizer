@@ -130,6 +130,7 @@ class IPNormalizer(App):
                 Horizontal(
                     Button("LOAD SELECTED", id="loadbtn"),
                     Button("LOAD PATH", id="manuaload"),
+                    Button("REFRESH", id="refreshbtn"),
                 ),
                 Label("CSV/TSV/TXT auto-detect | Output → output/"),
                 id="filepanel"
@@ -182,6 +183,35 @@ class IPNormalizer(App):
         if pathstr:
             path = Path(pathstr)
             self.parse_csv_safe(path)
+
+    @on(Button.Pressed, "#refreshbtn")
+    def refresh_directory(self):
+        """Refresh the directory tree to show new files."""
+        try:
+            # Get the container and old tree
+            tree_container = self.query_one("#treecontainer", Container)
+            old_tree = self.query_one("#dirtree", DirectoryTree)
+
+            # Store cursor position if possible
+            cursor_path = None
+            if old_tree.cursor_node and old_tree.cursor_node.data:
+                cursor_path = str(old_tree.cursor_node.data.path)
+
+            # Remove old tree and mount new one
+            old_tree.remove()
+            new_tree = DirectoryTree(str(self.input_dir), id="dirtree")
+            tree_container.mount(new_tree)
+
+            # Restore cursor if path still exists
+            if cursor_path and Path(cursor_path).exists():
+                new_tree.cursor_path = cursor_path
+
+            # Count files for status
+            file_count = len([f for f in self.input_dir.iterdir() if f.is_file()])
+            self.notify(f"Directory refreshed: {file_count} files found")
+            self.query_one("#status").update(f"Directory refreshed - {file_count} files in input/")
+        except Exception as e:
+            self.notify(f"Refresh error: {e}")
 
     @work(thread=True)
     def parse_csv_safe(self, path):
