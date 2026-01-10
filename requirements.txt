@@ -1,0 +1,11 @@
+# Terraform IPv4 IoC Normalizer - Python Dependencies
+# Python 3.8+ required
+
+# Textual TUI Framework
+textual>=0.65.0,<1.0.0
+
+# Rich text rendering (Textual dependency)
+rich>=14.0.0,<15.0.0
+
+# Clipboard operations
+pyperclip>=1.8.0,<2.0.0
