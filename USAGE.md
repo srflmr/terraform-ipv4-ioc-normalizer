@@ -86,8 +86,10 @@ This is a **Terminal User Interface (TUI)** application that helps security anal
    ```
 
    The launcher will automatically:
+   - Verify Python 3.8+ is installed
    - Create a virtual environment (`.venv`)
-   - Install all required dependencies
+   - Ensure pip is available
+   - Install all required dependencies from requirements.txt
    - Launch the application
 
 #### Option 2: Manual Installation (For Advanced Users)
@@ -312,7 +314,9 @@ python3 launcher.py
 ```
 
 The launcher handles everything automatically:
+- Verifies Python 3.8+ is installed
 - Creates/updates virtual environment
+- Ensures pip is available
 - Installs/upgrades dependencies
 - Launches the TUI application
 

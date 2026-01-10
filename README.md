@@ -52,12 +52,18 @@ git clone https://github.com/srflmr/terraform-ipv4-ioc-normalizer.git
 cd terraform-ipv4-ioc-normalizer
 
 # Run the auto-launcher (sets up everything automatically)
+# Windows (CMD/PowerShell):
+python launcher.py
+
+# Linux/macOS:
 python3 launcher.py
 ```
 
 The launcher will:
+- Verify Python 3.8+ is installed
 - Create a virtual environment (`.venv`)
-- Install all dependencies
+- Ensure pip is available
+- Install all dependencies from requirements.txt
 - Launch the application
 
 ### Manual Installation
@@ -66,8 +72,13 @@ See the [USAGE.md](USAGE.md) for detailed platform-specific instructions (Window
 
 ```bash
 # Create virtual environment
+# Windows:
+python -m venv .venv
+.venv\Scripts\activate
+
+# Linux/macOS:
 python3 -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+source .venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
