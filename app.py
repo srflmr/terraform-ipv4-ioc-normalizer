@@ -30,19 +30,22 @@ class IPNormalizer(App):
         height: 1fr;
     }
 
-    /* Panel proportions - responsive */
+    /* Panel proportions - fully responsive using flex */
     #filepanel {
-        width: 40%;  /* Fixed 40% for file browser */
+        width: 40%;
+        min-width: 35;
         height: 1fr;
     }
 
     #rawpanel {
-        width: 30%;  /* Fixed 30% for raw panel */
+        width: 30%;
+        min-width: 30;
         height: 1fr;
     }
 
     #normpanel {
-        width: 30%;  /* Fixed 30% for norm panel */
+        width: 30%;
+        min-width: 30;
         height: 1fr;
     }
 
@@ -51,24 +54,37 @@ class IPNormalizer(App):
         height: 1fr;
     }
 
-    /* Tree container - explicitly get remaining height */
+    /* Tree container - takes available space but leaves room for buttons */
     #treecontainer {
-        min-height: 10;
+        height: 1fr;
+        min-height: 5;
+        max-height: 20;
     }
 
     /* DataTable flex */
     DataTable {
-        min-height: 10;
+        height: 1fr;
+        min-height: 5;
     }
 
-    /* Button row styling */
+    /* Button styling - ensure visibility */
+    Button {
+        width: 1fr;
+        min-width: 10;
+        height: 1;
+        margin: 0;
+        padding: 0;
+    }
+
+    /* Horizontal button container */
     Horizontal > Button {
         width: 1fr;
     }
 
-    /* Summary panel */
+    /* Summary panel - responsive height */
     #summarypanel {
         height: 3;
+        min-height: 2;
     }
 
     #summarypanel > Static {
@@ -87,11 +103,19 @@ class IPNormalizer(App):
     Label {
         text-style: bold;
         text-align: center;
+        height: 1;
     }
 
     /* Input */
     Input {
         width: 1fr;
+        min-width: 20;
+        height: 1;
+    }
+
+    /* Container for tree */
+    Container {
+        height: 1fr;
     }
     """
 
@@ -130,8 +154,8 @@ class IPNormalizer(App):
                 Horizontal(
                     Button("LOAD SELECTED", id="loadbtn"),
                     Button("LOAD PATH", id="manuaload"),
-                    Button("REFRESH", id="refreshbtn"),
                 ),
+                Button("REFRESH", id="refreshbtn", variant="success"),
                 Label("CSV/TSV/TXT auto-detect | Output → output/"),
                 id="filepanel"
             ),
@@ -158,8 +182,12 @@ class IPNormalizer(App):
         yield Footer()
 
     def on_mount(self):
-        tree = self.query_one("#dirtree", DirectoryTree)
-        tree.focus()
+        # Get the DirectoryTree from the container (handles both initial and after-refresh)
+        tree_container = self.query_one("#treecontainer", Container)
+        for child in tree_container.children:
+            if isinstance(child, DirectoryTree):
+                child.focus()
+                break
 
     def on_directory_tree_file_selected(self, event):
         """Auto load on file select."""
@@ -170,10 +198,16 @@ class IPNormalizer(App):
     @on(Button.Pressed, "#loadbtn")
     def load_button(self):
         """Load from tree cursor."""
-        tree = self.query_one("#dirtree", DirectoryTree)
-        cursor_node = tree.cursor_node
-        if cursor_node and cursor_node.data and cursor_node.data.path.is_file():
-            self.parse_csv_safe(cursor_node.data.path)
+        # Get the DirectoryTree from the container
+        tree_container = self.query_one("#treecontainer", Container)
+        tree = None
+        for child in tree_container.children:
+            if isinstance(child, DirectoryTree):
+                tree = child
+                break
+
+        if tree and tree.cursor_node and tree.cursor_node.data and tree.cursor_node.data.path.is_file():
+            self.parse_csv_safe(tree.cursor_node.data.path)
         else:
             self.notify("No file selected!")
 
@@ -188,29 +222,43 @@ class IPNormalizer(App):
     def refresh_directory(self):
         """Refresh the directory tree to show new files."""
         try:
-            # Get the container and old tree
+            # Import time for unique ID generation
+            import time
+
+            # Get the container
             tree_container = self.query_one("#treecontainer", Container)
-            old_tree = self.query_one("#dirtree", DirectoryTree)
 
-            # Store cursor position if possible
+            # Store cursor position from old tree if it exists
             cursor_path = None
-            if old_tree.cursor_node and old_tree.cursor_node.data:
-                cursor_path = str(old_tree.cursor_node.data.path)
+            try:
+                old_tree = self.query_one("#dirtree", DirectoryTree)
+                if old_tree.cursor_node and old_tree.cursor_node.data:
+                    cursor_path = str(old_tree.cursor_node.data.path)
+                old_tree.remove()
+            except Exception:
+                pass  # No old tree exists
 
-            # Remove old tree and mount new one
-            old_tree.remove()
-            new_tree = DirectoryTree(str(self.input_dir), id="dirtree")
+            # Generate unique ID for the new tree
+            unique_id = f"dirtree_{int(time.time() * 1000)}"
+
+            # Mount new tree with unique ID
+            new_tree = DirectoryTree(str(self.input_dir), id=unique_id)
             tree_container.mount(new_tree)
 
             # Restore cursor if path still exists
             if cursor_path and Path(cursor_path).exists():
-                new_tree.cursor_path = cursor_path
+                try:
+                    new_tree.cursor_path = cursor_path
+                except Exception:
+                    pass  # Cursor restoration is optional
 
             # Count files for status
             file_count = len([f for f in self.input_dir.iterdir() if f.is_file()])
             self.notify(f"Directory refreshed: {file_count} files found")
             self.query_one("#status").update(f"Directory refreshed - {file_count} files in input/")
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             self.notify(f"Refresh error: {e}")
 
     @work(thread=True)
