@@ -47,6 +47,7 @@ input/*.log
 
 # Output files (generated data)
 output/*.json
+output/*.txt
 !output/.gitkeep
 
 # Logs

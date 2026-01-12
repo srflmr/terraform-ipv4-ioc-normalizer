@@ -27,7 +27,8 @@ A **Lazygit-style Terminal User Interface (TUI)** application that converts raw 
 - Clean, keyboard-driven interface (no mouse required)
 - Auto-detects CSV delimiters (comma, semicolon, tab, pipe)
 - Validates and extracts IPv4 addresses automatically
-- Copy to clipboard or export to JSON
+- **IP Deduplication** - Automatically removes duplicate IPv4 addresses
+- Copy to clipboard or export to JSON + TXT
 - Cross-platform (Windows, Linux, macOS)
 
 ---
@@ -83,6 +84,31 @@ pip install -r requirements.txt
 python app.py
 ```
 
+### Updating the Application
+
+If you have already cloned the repository and want to update to the latest version:
+
+```bash
+# Navigate to the project directory
+cd terraform-ipv4-ioc-normalizer
+
+# Pull the latest changes from repository
+git pull origin main
+
+# Activate virtual environment (if not already active)
+# Windows:
+.venv\Scripts\activate
+
+# Linux/macOS:
+source .venv/bin/activate
+
+# Upgrade dependencies (recommended)
+pip install --upgrade -r requirements.txt
+
+# Run the application
+python app.py
+```
+
 ### Linux Clipboard Support
 
 For clipboard functionality on Linux:
@@ -130,6 +156,14 @@ indicator,value
 10.0.0.1
 172.16.0.1
 ```
+
+**Mixed content with non-IPv4 values:**
+```csv
+timestamp,src_ip,dst_ip,action
+2024-01-15T10:00:00,192.168.1.1,10.0.0.1,TCP
+2024-01-15T10:00:01,invalid-ip,8.8.8.8,UDP
+```
+Only valid IPv4 addresses will be extracted.
 
 ### File Placement
 
@@ -191,7 +225,13 @@ python app.py
 1. **Place CSV file** in `input/` directory
 2. **Select file** from Files panel (auto-loads on selection)
 3. **Press `p`** to process IPs to Terraform /32 format
-4. **Press `c`** to copy to clipboard OR **`s`** to save as JSON
+4. **Press `c`** to copy to clipboard OR **`s`** to save as JSON & TXT
+
+### IP Deduplication
+
+Duplicate IPv4 addresses are automatically removed during processing. The notification will show:
+- **No duplicates**: "Loaded X IPv4 addresses"
+- **With duplicates**: "Loaded X unique IPs (Y duplicates removed)"
 
 ---
 
@@ -214,7 +254,7 @@ python app.py
 |-----|--------|
 | `p` | Process IPs to /32 format |
 | `c` | Copy Terraform list to clipboard |
-| `s` | Save as JSON |
+| `s` | Save as JSON & TXT |
 | `r` | Refresh file browser |
 | `?` | Show help |
 
@@ -238,8 +278,11 @@ python app.py
 cidr_blocks = ["192.168.1.1/32","10.0.0.1/32"]
 ```
 
-### Save as JSON (`s`)
+### Save as JSON & TXT (`s`)
 
+Both formats are saved simultaneously when pressing `s`.
+
+#### JSON Export
 **File location:** `output/terraform_iocs_<count>_<timestamp>.json`
 
 **Format:**
@@ -249,13 +292,24 @@ cidr_blocks = ["192.168.1.1/32","10.0.0.1/32"]
   "source_file": "input/sample.csv",
   "source_name": "sample.csv",
   "ipv4_count": 3,
-  "terraform_list": "[\"192.168.1.1/32\",\"10.0.0.1/32\"]",
-  "cidr_blocks": [
-    "192.168.1.1/32",
-    "10.0.0.1/32",
-    "172.16.0.1/32"
-  ]
+  "terraform_list": "[\"192.168.1.1/32\",\"10.0.0.1/32\",\"172.16.0.1/32\"]",
+  "cidr_blocks_form1": ["192.168.1.1/32", "10.0.0.1/32", "172.16.0.1/32"],
+  "cidr_blocks_form2": "[192.168.1.1/32, 10.0.0.1/32, 172.16.0.1/32]"
 }
+```
+
+**CIDR Format Options:**
+- `cidr_blocks_form1`: JSON array format with quotes - best for programmatic use
+- `cidr_blocks_form2`: Terraform literal format without quotes - best for direct copy-paste
+
+#### TXT Export
+**File location:** `output/terraform_iocs_<count>_<timestamp>.txt`
+
+**Format:** Plain text, one IP per line (no CIDR notation):
+```
+192.168.1.1
+10.0.0.1
+172.16.0.1
 ```
 
 ---
@@ -282,8 +336,22 @@ locals {
 }
 
 resource "aws_security_group_rule" "ingress" {
-  cidr_blocks = local.ioc_data.cidr_blocks
+  cidr_blocks = local.ioc_data.cidr_blocks_form1
   # ... other config
+}
+```
+
+### Using cidr_blocks_form2 (Direct Terraform Format)
+
+```hcl
+locals {
+  ioc_data = jsondecode(file("${path.module}/output/terraform_iocs_3_20240115.json"))
+  # Parse the string as Terraform list
+  cidr_list = split(",", replace(local.ioc_data.cidr_blocks_form2, "[\\[\\]\\s\"]", ""))
+}
+
+resource "aws_security_group_rule" "ingress" {
+  cidr_blocks = local.cidr_list
 }
 ```
 
@@ -294,6 +362,7 @@ resource "aws_security_group_rule" "ingress" {
 ### "No valid IPv4 addresses found"
 - Verify file contains valid IPv4 addresses (e.g., `192.168.1.1`)
 - Check file is supported format (.csv, .tsv, .txt, .log)
+- Ensure IPs are properly formatted (4 octets, 0-255 each)
 
 ### "Unsupported file type"
 - Only `.csv`, `.tsv`, `.txt`, `.log` files are supported
@@ -322,6 +391,11 @@ python launcher.py
 - Resize terminal window if needed
 - On Windows, try PowerShell instead of CMD
 
+### Output files not appearing
+- Check `output/` directory exists
+- Verify write permissions
+- Look for error notification in UI
+
 ---
 
 ## Tips
@@ -331,6 +405,33 @@ python launcher.py
 3. **Test with sample data** before processing large files
 4. **Keep JSON exports** for audit trails
 5. **Use JSON export** for automation pipelines
+6. **Use TXT export** for simple IP lists in firewalls/tools
+7. **Duplicates are auto-removed** - no need to pre-process your data
+
+---
+
+## CSV Input Scenarios Supported
+
+### Various Delimiters
+- Comma (`,`) - Standard CSV
+- Semicolon (`;`) - European CSV
+- Tab (`\t`) - TSV files
+- Pipe (`|`) - Pipe-delimited files
+
+### With or Without Headers
+Headers are auto-detected and skipped during processing.
+
+### Mixed Content
+Non-IPv4 values are automatically ignored. Only valid IPv4 addresses are extracted.
+
+### Multiple IPv4 per Row
+All IPv4 addresses from all columns are extracted.
+
+### Duplicates
+Duplicate IPs are automatically removed while preserving order.
+
+### Spacing and Quotes
+Extra spaces and quotes are automatically stripped.
 
 ---
 

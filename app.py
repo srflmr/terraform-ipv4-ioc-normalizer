@@ -163,7 +163,7 @@ class IPNormalizer(App):
         ("tab", "cycle_panels", "Next"),
         ("p", "process_ips", "Process"),
         ("c", "copy_result", "Copy"),
-        ("s", "save_json", "Save"),
+        ("s", "save_all", "Save All"),
         ("r", "refresh_tree", "Refresh"),
         ("q", "app.quit", "Quit"),
         ("?", "show_help", "Help"),
@@ -216,7 +216,7 @@ Select a file from the Files panel to begin.
 Keybindings:
   1 - Files Panel    p - Process IPs
   2 - Raw IPs Panel  c - Copy Result
-  3 - Terraform Panel s - Save JSON
+  3 - Terraform Panel s - Save JSON+TXT
   0 - Preview Panel  r - Refresh Files
   Tab - Cycle Panels q - Quit
   ? - Help
@@ -226,7 +226,7 @@ Workflow:
 2. Raw IPv4 addresses will appear in Raw IPs panel
 3. Press p to convert to Terraform /32 format
 4. Results appear in Terraform panel
-5. Press c to copy or s to save JSON""",
+5. Press c to copy or s to save JSON & TXT""",
                     id="preview_content"
                 )
 
@@ -315,7 +315,7 @@ Panel Navigation:
 Actions:
   p - Process: Convert raw IPs to Terraform /32 format
   c - Copy: Copy Terraform list to clipboard
-  s - Save: Export to JSON file in output/ directory
+  s - Save: Export to JSON and TXT files in output/ directory
   r - Refresh: Refresh the file browser
   q - Quit: Exit the application
 
@@ -426,19 +426,33 @@ Press any panel key to return to work."""
             self.call_from_thread(self.notify, f"Parse error: {e}")
 
     def update_raw_ips(self, ips: List[str]) -> None:
-        """Update the raw IPs table."""
-        self.raw_ips = ips
-        self.raw_count = len(ips)
+        """Update the raw IPs table with deduplication."""
+        # Deduplicate while preserving order
+        seen = set()
+        unique_ips = []
+        for ip in ips:
+            if ip not in seen:
+                seen.add(ip)
+                unique_ips.append(ip)
+
+        self.raw_ips = unique_ips
+        self.raw_count = len(unique_ips)
+        duplicates_removed = len(ips) - len(unique_ips)
 
         table = self.query_one("#raw_table", DataTable)
         table.clear()
         table.add_columns("IPv4 Address")
 
-        for ip in ips:
+        for ip in unique_ips:
             table.add_row(ip)
 
         table.focus()
-        self.notify(f"Loaded {len(ips)} IPv4 addresses")
+
+        # Enhanced notification
+        if duplicates_removed > 0:
+            self.notify(f"Loaded {len(unique_ips)} unique IPs ({duplicates_removed} duplicates removed)")
+        else:
+            self.notify(f"Loaded {len(unique_ips)} IPv4 addresses")
 
         # Update preview
         self.update_preview_with_summary()
@@ -504,7 +518,7 @@ Terraform List:
 
 Actions:
   c - Copy to clipboard
-  s - Save as JSON
+  s - Save as JSON & TXT
 
 Ready to use in your Terraform configuration!"""
         )
@@ -522,16 +536,24 @@ Ready to use in your Terraform configuration!"""
         except Exception as e:
             self.notify(f"Copy failed: {e}")
 
-    def action_save_json(self) -> None:
-        """Export results to JSON."""
+    def action_save_all(self) -> None:
+        """Export results to JSON and TXT formats."""
         if not self.norm_ips:
             self.notify("No results to save!")
             return
 
         try:
-            cidr_blocks_clean = [f"{ip}/32" for ip in self.raw_ips]
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             source_name = self.input_file.name if self.input_file else "unknown"
+
+            # Save JSON export
+            cidr_blocks_clean = [f"{ip}/32" for ip in self.raw_ips]
+
+            # cidr_blocks_form1: horizontal with quotes ["192.168.1.1/32", "10.0.0.1/32", ...]
+            cidr_blocks_form1 = cidr_blocks_clean
+
+            # cidr_blocks_form2: horizontal without quotes [192.168.1.1/32, 10.0.0.1/32, ...]
+            cidr_blocks_form2_str = f"[{', '.join(cidr_blocks_clean)}]"
 
             data = {
                 "export_timestamp": datetime.now().isoformat(),
@@ -539,14 +561,21 @@ Ready to use in your Terraform configuration!"""
                 "source_name": source_name,
                 "ipv4_count": len(self.norm_ips),
                 "terraform_list": f"[{','.join(self.norm_ips)}]",
-                "cidr_blocks": cidr_blocks_clean
+                "cidr_blocks_form1": cidr_blocks_form1,
+                "cidr_blocks_form2": cidr_blocks_form2_str
             }
 
-            filename = f"terraform_iocs_{len(self.norm_ips)}_{timestamp}.json"
-            output_path = self.output_dir / filename
-            output_path.write_text(json.dumps(data, indent=2))
+            json_filename = f"terraform_iocs_{len(self.norm_ips)}_{timestamp}.json"
+            json_output_path = self.output_dir / json_filename
+            json_output_path.write_text(json.dumps(data, indent=2))
 
-            self.notify(f"Saved: output/{filename}")
+            # Save TXT export (plain text, one IP per line)
+            txt_filename = f"terraform_iocs_{len(self.norm_ips)}_{timestamp}.txt"
+            txt_output_path = self.output_dir / txt_filename
+            txt_content = "\n".join(self.raw_ips)
+            txt_output_path.write_text(txt_content)
+
+            self.notify(f"Saved: output/{json_filename} & output/{txt_filename}")
 
         except Exception as e:
             self.notify(f"Save failed: {e}")
