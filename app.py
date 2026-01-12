@@ -581,34 +581,70 @@ Ready to use in your Terraform configuration!"""
             self.notify(f"Save failed: {e}")
 
     def action_refresh_tree(self) -> None:
-        """Refresh the directory tree."""
+        """Refresh the directory tree hanya jika ada perubahan."""
         try:
-            import time
+            # Get current file list dan buat set untuk comparison
+            current_files = set(f.name for f in self.input_dir.iterdir() if f.is_file())
+
+            # Get previous file list dari state atau buat set kosong jika belum ada
+            if not hasattr(self, '_previous_files'):
+                self._previous_files = set()
+
+            # Hitung perbedaan SEBELUM update state
+            added_files = current_files - self._previous_files
+            removed_files = self._previous_files - current_files
+
+            # Cek apakah ada perubahan
+            if not added_files and not removed_files:
+                self.notify("Tidak ada perubahan file")
+                return
+
+            # Ada perubahan, lanjutkan refresh
+            # Get tree container dan children
             tree_container = self.query_one("#files_panel", Vertical)
+            children = tree_container.children
 
-            # Save current cursor
+            # Save current cursor position dari DirectoryTree manapun yang ada
             cursor_path = None
-            try:
-                old_tree = self.query_one("#dir_tree", DirectoryTree)
-                if old_tree.cursor_node and old_tree.cursor_node.data:
-                    cursor_path = str(old_tree.cursor_node.data.path)
-                old_tree.remove()
-            except Exception:
-                pass
+            for child in children:
+                if isinstance(child, DirectoryTree):
+                    if child.cursor_node and child.cursor_node.data:
+                        cursor_path = str(child.cursor_node.data.path)
+                    break
 
-            # Create new tree
-            new_tree = DirectoryTree(str(self.input_dir), id=f"dir_tree_{int(time.time())}")
+            # Remove semua DirectoryTree yang ada di container
+            for child in list(children):  # Use list() to avoid modification during iteration
+                if isinstance(child, DirectoryTree):
+                    child.remove()
+
+            # Create new tree dengan ID yang selalu sama "dir_tree"
+            # Setelah old tree di-remove, ID ini aman digunakan
+            new_tree = DirectoryTree(str(self.input_dir), id="dir_tree")
             tree_container.mount(new_tree)
 
-            # Restore cursor
+            # Focus pada new tree
+            new_tree.focus()
+
+            # Restore cursor position jika ada
             if cursor_path and Path(cursor_path).exists():
                 try:
                     new_tree.cursor_path = cursor_path
                 except Exception:
+                    # Path tidak ada di tree baru, silent fail
                     pass
 
-            file_count = len([f for f in self.input_dir.iterdir() if f.is_file()])
-            self.notify(f"Refreshed: {file_count} files")
+            # Update state dengan file list saat ini
+            self._previous_files = current_files
+
+            # Notification yang jelas berdasarkan perubahan
+            if added_files and not removed_files:
+                self.notify(f"Refreshed: {len(added_files)} file baru ditambahkan")
+            elif removed_files and not added_files:
+                self.notify(f"Refreshed: {len(removed_files)} file dihapus")
+            elif added_files and removed_files:
+                self.notify(f"Refreshed: {len(added_files)} baru, {len(removed_files)} dihapus")
+            else:
+                self.notify(f"Refreshed: {len(current_files)} files")
 
         except Exception as e:
             self.notify(f"Refresh error: {e}")
